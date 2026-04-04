@@ -7,9 +7,13 @@ V = TypeVar("V")
 
 
 class CachedProperty[V]:
+    _cache_key: str
+
     def __init__(self, func: Callable[..., V]) -> None:
         self._getter = func
-        self._cache_key = ""
+
+    def __set_name__(self, _owner: type[Any], name: str) -> None:
+        self._cache_key = name
 
     def __get__(self, instance: HasCache[str, V] | None, _owner: type[Any]) -> Any:
         if instance is None:

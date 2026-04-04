@@ -15,9 +15,7 @@ class DictStorage(Storage[K, V]):
         self._data[key] = value
 
     def get(self, key: K) -> V | None:
-        if not self.exists(key):
-            return None
-        return self._data[key]
+        return self._data.get(key)
 
     def exists(self, key: K) -> bool:
         return key in self._data
