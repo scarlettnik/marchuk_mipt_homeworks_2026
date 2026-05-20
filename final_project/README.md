@@ -1,12 +1,41 @@
 # Итоговый проект "GigaVibeMiptCode"
 
-Актуальный текст задания доступен [здесь](https://docs.google.com/document/d/1hjEwsQd8m6-esJA37ZkGNIwK9Rn2edBC0MozFxpqxRg/edit?usp=sharing).
+Консольный чат-бот для GigaChat OpenAI-compatible API.
 
-**Дедлайн загрузки решений: 23:59 22 мая.**
+Поддерживает историю диалога, лимиты контекста, вставку файлов через `@::path::`, chunk mode, `/reset` и `\q`.
 
-В рамках проекта вам предстоит создать собственного ИИ-ассистента с консольным интерфейсом, который будет обрабатывать пользовательский ввод, отправлять запросы к LLM и выводить пользователю ответы в разных режимах.
+## Конфигурация
 
-Решения необходимо подгрузить в форки данного репозитория.
+`config.yaml`:
 
-Требования к линтерам смягчены: используйте ruff check с конфигурацией из нового ruff.toml
-Проверку типов выполняем через простой запуск mypy.
+```yml
+api_key: your_authorization_key_here
+api_host: https://gigachat.devices.sberbank.ru/api/v1
+model: GigaChat
+limit_message: 20
+limit_chars: 4000
+temperature: 0.3
+verify_ssl: false
+system_prompt: You are an assistant for Python backend development tasks.
+```
+
+`api_key` — это authorization key из Studio. Access token получать вручную не нужно:
+бот делает это сам через OAuth. Иначе пришлось обновлять каждый 30 минутю
+В идеальное мире нужно добавить сертификат, но по умолчанию прописана работа без сертификата
+
+## Команды
+
+- `\q` — выход;
+- `/reset` — очистка истории и экрана;
+- `/filechunk` — обработка файла по абзацам;
+- `/filechunk paragraph=3` — по 3 абзаца;
+- `/filechunk len=150` — по 150 символов;
+- `/filechunk paragraph=3 -y` — без ручного перехода между чанками.
+
+## Проверки
+
+```bash
+python -m pytest final_project/tests
+python -m mypy final_project
+ruff check final_project --config final_project/ruff.toml
+```
