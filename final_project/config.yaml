@@ -1,0 +1,7 @@
+api_host: https://gigachat.devices.sberbank.ru/api/v1
+cert_path: linux_russian_trusted_root_ca_pem
+model: GigaChat
+limit_message: 20
+limit_chars: 4000
+temperature: 0.3
+system_prompt: You are an assistant for Python backend development tasks.

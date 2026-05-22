@@ -23,6 +23,7 @@ class GigaChatClient:
     timeout_seconds: int = 300
     _access_token: str | None = field(default=None, init=False)
     _expires_at: int = field(default=0, init=False)
+    _ssl_context_cache: ssl.SSLContext | None = field(default=None, init=False)
 
     def generate(self, messages: list[Message]) -> str:
         try:
@@ -75,10 +76,20 @@ class GigaChatClient:
             self._expires_at = int(payload['expires_at']) // 1000
             return self._access_token
 
-    def _ssl_context(self) -> ssl.SSLContext | None:
-        if self.config.verify_ssl:
-            return None
-        return ssl._create_unverified_context()
+    def _ssl_context(self) -> ssl.SSLContext:
+        if self._ssl_context_cache is None:
+            context = ssl.create_default_context()
+            for cert_path in self.config.cert_paths:
+                _load_verify_cert(context, cert_path.read_bytes(), str(cert_path))
+            self._ssl_context_cache = context
+        return self._ssl_context_cache
+
+
+def _load_verify_cert(context: ssl.SSLContext, cert_data: bytes, cert_path: str) -> None:
+    if cert_data.lstrip().startswith(b'-----BEGIN CERTIFICATE-----'):
+        context.load_verify_locations(cafile=cert_path)
+        return
+    context.load_verify_locations(cadata=cert_data)
 
 
 def _build_payload(config: AppConfig, messages: list[Message]) -> bytes:

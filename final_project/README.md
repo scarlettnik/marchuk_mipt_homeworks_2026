@@ -6,22 +6,28 @@
 
 ## Конфигурация
 
-`config.yaml`:
+Несекретные настройки лежат в `config.yaml`:
 
 ```yml
-api_key: your_authorization_key_here
 api_host: https://gigachat.devices.sberbank.ru/api/v1
+cert_path: linux_russian_trusted_root_ca_pem
 model: GigaChat
 limit_message: 20
 limit_chars: 4000
 temperature: 0.3
-verify_ssl: false
 system_prompt: You are an assistant for Python backend development tasks.
 ```
 
-`api_key` — это authorization key из Studio. Access token получать вручную не нужно:
-бот делает это сам через OAuth. Иначе пришлось обновлять каждый 30 минутю
-В идеальное мире нужно добавить сертификат, но по умолчанию прописана работа без сертификата
+Секреты лежат в `final_project/.env`; этот файл добавлен в `.gitignore`:
+
+```env
+API_KEY=your_authorization_key_here
+```
+
+`API_KEY` — это authorization key из Studio. Access token получать вручную не нужно:
+бот делает это сам через OAuth, иначе токен пришлось бы обновлять каждые 30 минут.
+
+TLS-сертификаты обязательны. Клиент всегда проверяет SSL через `cert_path`
 
 ## Команды
 
