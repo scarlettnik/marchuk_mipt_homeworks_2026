@@ -27,6 +27,19 @@ def test_prepare_turn_truncates_long_message_from_left() -> None:
     assert prepared_turn.messages[-1].content == 'defgh'
 
 
+def test_prepare_turn_counts_system_prompt_in_char_limit() -> None:
+    session = ChatSession(
+        limits=ContextLimits(char_count=10),
+        system_prompt='system',
+    )
+
+    prepared_turn = session.prepare_turn('abcdefgh')
+
+    assert prepared_turn.user_message.content == 'efgh'
+    assert [message.content for message in prepared_turn.messages] == ['system', 'efgh']
+    assert sum(len(message.content) for message in prepared_turn.messages) == 10
+
+
 def test_commit_turn_keeps_trimmed_history() -> None:
     session = ChatSession(ContextLimits(char_count=8))
     first_turn = session.prepare_turn('1234')

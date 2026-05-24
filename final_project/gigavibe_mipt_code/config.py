@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+import yaml
+
 DEFAULT_MODEL = 'GigaChat'
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_AUTH_SCOPE = 'GIGACHAT_API_PERS'
@@ -128,22 +130,25 @@ def _load_env_file(env_path: Path) -> dict[str, str]:
 
 
 def _load_yaml_config(config_path: Path) -> dict[str, object]:
-    content = config_path.read_text(encoding='utf-8')
-    config: dict[str, object] = {}
+    try:
+        loaded_config = yaml.safe_load(config_path.read_text(encoding='utf-8'))
+    except yaml.YAMLError as error:
+        raise ConfigError from error
 
-    for raw_line in content.splitlines():
-        stripped_line = raw_line.strip()
-        if not stripped_line or stripped_line.startswith('#'):
-            continue
-        if ':' not in raw_line:
+    if loaded_config is None:
+        return {}
+    if not isinstance(loaded_config, Mapping):
+        raise ConfigError
+
+    config: dict[str, object] = {}
+    for raw_key, value in loaded_config.items():
+        if not isinstance(raw_key, str):
             raise ConfigError
 
-        key_part, value_part = raw_line.split(':', 1)
-        key = key_part.strip()
+        key = raw_key.strip()
         if not key or key in FORBIDDEN_YAML_KEYS:
             raise ConfigError
-
-        config[key] = _parse_scalar(value_part.strip())
+        config[key] = value
     return config
 
 
@@ -233,35 +238,6 @@ def _parse_env_value(raw_value: str) -> str:
         return parsed_value
 
     return raw_value
-
-
-def _parse_scalar(raw_value: str) -> object:
-    if not raw_value:
-        return ''
-
-    normalized_value = raw_value.lower()
-    if normalized_value in {'null', 'none', '~'}:
-        return None
-    if normalized_value == 'true':
-        return True
-    if normalized_value == 'false':
-        return False
-
-    if raw_value[0] in {'"', "'"} and raw_value[-1] == raw_value[0]:
-        try:
-            return ast.literal_eval(raw_value)
-        except (SyntaxError, ValueError) as error:
-            raise ConfigError from error
-
-    try:
-        return int(raw_value)
-    except ValueError:
-        pass
-
-    try:
-        return float(raw_value)
-    except ValueError:
-        return raw_value
 
 
 def _required(

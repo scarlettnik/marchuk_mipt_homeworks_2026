@@ -48,6 +48,37 @@ def test_load_config_from_yaml_and_dotenv(tmp_path: Path, monkeypatch: pytest.Mo
     assert config.system_prompt == 'Test prompt'
 
 
+def test_load_config_supports_multiline_system_prompt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_env(monkeypatch)
+    _write_cert(tmp_path)
+    _write_dotenv(tmp_path, 'dotenv-token')
+    config_path = tmp_path / 'config.yaml'
+    config_path.write_text(
+        '\n'.join(
+            (
+                'api_host: https://gigachat.devices.sberbank.ru/api/v1',
+                'system_prompt: |-',
+                '  You are an assistant.',
+                '  Follow these rules:',
+                '  - answer briefly',
+                '  - keep code intact',
+                'model: GigaChat',
+            ),
+        ),
+        encoding='utf-8',
+    )
+
+    config = load_config(config_path)
+
+    assert config.model == 'GigaChat'
+    assert config.system_prompt == (
+        'You are an assistant.\nFollow these rules:\n- answer briefly\n- keep code intact'
+    )
+
+
 def test_environment_overrides_yaml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_env(monkeypatch)
     _write_cert(tmp_path)

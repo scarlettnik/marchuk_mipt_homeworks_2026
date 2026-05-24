@@ -15,7 +15,9 @@ model: GigaChat
 limit_message: 20
 limit_chars: 4000
 temperature: 0.3
-system_prompt: You are an assistant for Python backend development tasks.
+system_prompt: |-
+  You are an assistant for Python backend development tasks.
+  Answer concisely and keep code changes focused.
 ```
 
 Секреты лежат в `final_project/.env`; этот файл добавлен в `.gitignore`:

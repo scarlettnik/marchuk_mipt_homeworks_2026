@@ -68,7 +68,7 @@ class ChatSession:
     _window: MessageWindow = field(init=False)
 
     def __post_init__(self) -> None:
-        self._window = MessageWindow(self.limits)
+        self._window = MessageWindow(self._window_limits())
 
     def clear(self) -> None:
         self._window.clear()
@@ -93,14 +93,37 @@ class ChatSession:
     def _with_system_prompt(self, messages: list[Message]) -> list[Message]:
         if not self.system_prompt:
             return messages
-        system_message = Message(Role.SYSTEM, self.system_prompt)
+        system_content = self.system_prompt
+        if self.limits.char_count is not None:
+            system_content = _clip_content(system_content, self._system_prompt_char_count())
+        system_message = Message(
+            Role.SYSTEM,
+            system_content,
+        )
         return [system_message, *messages]
+
+    def _window_limits(self) -> ContextLimits:
+        char_count = self.limits.char_count
+        if char_count is not None and self.system_prompt:
+            char_count = max(char_count - self._system_prompt_char_count(), 0)
+        return ContextLimits(self.limits.message_count, char_count)
+
+    def _system_prompt_char_count(self) -> int:
+        if self.limits.char_count is None or not self.system_prompt:
+            return 0
+        return min(len(self.system_prompt), self.limits.char_count)
 
 
 def _clip_message(message: Message, char_limit: int) -> Message:
-    if len(message.content) <= char_limit:
-        return message
-    return Message(message.role, message.content[-char_limit:])
+    return Message(message.role, _clip_content(message.content, char_limit))
+
+
+def _clip_content(content: str, char_limit: int) -> str:
+    if char_limit <= 0:
+        return ''
+    if len(content) <= char_limit:
+        return content
+    return content[-char_limit:]
 
 
 def _count_chars(messages: list[Message]) -> int:

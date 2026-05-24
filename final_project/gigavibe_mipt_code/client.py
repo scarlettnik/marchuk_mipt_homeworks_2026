@@ -1,6 +1,7 @@
 import json
 import ssl
 import time
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from urllib.error import URLError
 from urllib.parse import urlencode
@@ -32,11 +33,16 @@ class GigaChatClient:
                 timeout=self.timeout_seconds,
                 context=self._ssl_context(),
             ) as response:
-                payload = json.loads(response.read())
-                return str(payload['choices'][0]['message']['content'])
+                return ''.join(_read_stream_response(response))
         except (URLError, OSError) as error:
             raise LLMClientError(error) from error
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
+        except (
+            KeyError,
+            IndexError,
+            TypeError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+        ) as error:
             raise LLMClientError from error
 
     def _build_request(self, messages: list[Message]) -> Request:
@@ -96,9 +102,28 @@ def _build_payload(config: AppConfig, messages: list[Message]) -> bytes:
     payload = {
         'model': config.model,
         'messages': [message.as_payload() for message in messages],
+        'stream': True,
         'temperature': config.temperature,
     }
     return json.dumps(payload, ensure_ascii=False).encode('utf-8')
+
+
+def _read_stream_response(lines: Iterable[bytes]) -> Iterator[str]:
+    for raw_line in lines:
+        line = raw_line.decode('utf-8').strip()
+        if not line or line.startswith(':'):
+            continue
+        if not line.startswith('data:'):
+            continue
+
+        raw_payload = line.removeprefix('data:').strip()
+        if raw_payload == '[DONE]':
+            return
+
+        payload = json.loads(raw_payload)
+        content = payload['choices'][0].get('delta', {}).get('content')
+        if content is not None:
+            yield str(content)
 
 
 def _authorization_header(api_key: str) -> str:
