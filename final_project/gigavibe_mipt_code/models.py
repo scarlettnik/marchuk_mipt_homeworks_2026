@@ -15,4 +15,3 @@ class Message:
 
     def as_payload(self) -> dict[str, str]:
         return {'role': self.role.value, 'content': self.content}
-

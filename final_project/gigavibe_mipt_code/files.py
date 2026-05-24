@@ -109,4 +109,3 @@ def _split_paragraphs(text: str) -> list[str]:
     if len(paragraphs) > 1:
         return paragraphs
     return [line.strip() for line in text.splitlines() if line.strip()]
-

@@ -15,4 +15,3 @@ class Terminal:
     def clear(self) -> None:
         command = 'cls' if os.name == 'nt' else 'clear'
         os.system(command)
-

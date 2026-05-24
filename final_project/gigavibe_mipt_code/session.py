@@ -105,4 +105,3 @@ def _clip_message(message: Message, char_limit: int) -> Message:
 
 def _count_chars(messages: list[Message]) -> int:
     return sum(len(message.content) for message in messages)
-
