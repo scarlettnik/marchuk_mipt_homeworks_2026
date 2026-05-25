@@ -1,14 +1,14 @@
-import ast
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
+from dotenv import load_dotenv
 import yaml
 
 DEFAULT_MODEL = 'GigaChat'
 DEFAULT_TEMPERATURE = 0.7
+DEFAULT_STREAM = True
 DEFAULT_AUTH_SCOPE = 'GIGACHAT_API_PERS'
 DEFAULT_TOKEN_URL = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth'
 DEFAULT_CERT_PATH = 'linux_russian_trusted_root_ca_pem'
@@ -69,6 +69,7 @@ class AppConfig:
     limit_message: int | None = None
     limit_chars: int | None = None
     temperature: float = DEFAULT_TEMPERATURE
+    stream: bool = DEFAULT_STREAM
     system_prompt: str | None = None
 
 
@@ -81,7 +82,7 @@ def load_config(config_path: Path) -> AppConfig:
     if config_path.exists():
         raw_config.update(_load_yaml_config(config_path))
     if env_path.exists():
-        raw_config.update(_load_env_file_config(env_path))
+        load_dotenv(dotenv_path=env_path, override=False)
     raw_config.update(_load_os_env_config())
     return _build_config(raw_config, config_path.parent)
 
@@ -94,10 +95,6 @@ def _load_os_env_config() -> dict[str, object]:
     return _load_env_config(os.environ)
 
 
-def _load_env_file_config(env_path: Path) -> dict[str, object]:
-    return _load_env_config(_load_env_file(env_path))
-
-
 def _load_env_config(env_values: Mapping[str, str]) -> dict[str, object]:
     raw_config: dict[str, object] = {}
     for config_key, env_name in ENV_MAPPING.items():
@@ -106,27 +103,6 @@ def _load_env_config(env_values: Mapping[str, str]) -> dict[str, object]:
             continue
         raw_config[config_key] = env_value
     return raw_config
-
-
-def _load_env_file(env_path: Path) -> dict[str, str]:
-    env_values: dict[str, str] = {}
-    content = env_path.read_text(encoding='utf-8')
-
-    for raw_line in content.splitlines():
-        stripped_line = raw_line.strip()
-        if not stripped_line or stripped_line.startswith('#'):
-            continue
-        if stripped_line.startswith('export '):
-            stripped_line = stripped_line.removeprefix('export ').strip()
-        if '=' not in stripped_line:
-            raise ConfigError
-
-        key_part, value_part = stripped_line.split('=', 1)
-        key = key_part.strip()
-        if not key:
-            raise ConfigError
-        env_values[key] = _parse_env_value(value_part.strip())
-    return env_values
 
 
 def _load_yaml_config(config_path: Path) -> dict[str, object]:
@@ -153,31 +129,19 @@ def _load_yaml_config(config_path: Path) -> dict[str, object]:
 
 
 def _build_config(raw_config: dict[str, object], config_dir: Path) -> AppConfig:
-    api_host = cast(str, _required(raw_config, 'api_host', _parse_non_empty_str))
-    api_key = cast(str, _required(raw_config, 'api_key', _parse_non_empty_str))
-    auth_scope = cast(
-        str | None,
-        _optional(raw_config, 'auth_scope', _parse_non_empty_str),
-    )
-    cert_path = cast(str | None, _optional(raw_config, 'cert_path', _parse_non_empty_str))
-    model = cast(str | None, _optional(raw_config, 'model', _parse_non_empty_str))
-    token_url = cast(str | None, _optional(raw_config, 'token_url', _parse_non_empty_str))
-    limit_message = cast(
-        int | None,
-        _optional(raw_config, 'limit_message', _parse_positive_int),
-    )
-    limit_chars = cast(
-        int | None,
-        _optional(raw_config, 'limit_chars', _parse_positive_int),
-    )
-    system_prompt = cast(
-        str | None,
-        _optional(raw_config, 'system_prompt', _parse_non_empty_str),
-    )
-    temperature = cast(
-        float | None,
-        _optional(raw_config, 'temperature', _parse_temperature),
-    )
+    api_host = _required_non_empty_str(raw_config, 'api_host')
+    api_key = _required_non_empty_str(raw_config, 'api_key')
+    auth_scope = _optional_non_empty_str(raw_config, 'auth_scope')
+    cert_path = _optional_non_empty_str(raw_config, 'cert_path')
+    model = _optional_non_empty_str(raw_config, 'model')
+    token_url = _optional_non_empty_str(raw_config, 'token_url')
+    limit_message = _optional_positive_int(raw_config, 'limit_message')
+    limit_chars = _optional_positive_int(raw_config, 'limit_chars')
+    system_prompt = _optional_non_empty_str(raw_config, 'system_prompt')
+    temperature = _optional_temperature(raw_config, 'temperature')
+    stream = raw_config.get('stream')
+    if stream is not None and not isinstance(stream, bool):
+        raise ConfigError
 
     return AppConfig(
         api_host=api_host.rstrip('/'),
@@ -189,6 +153,7 @@ def _build_config(raw_config: dict[str, object], config_dir: Path) -> AppConfig:
         limit_message=limit_message,
         limit_chars=limit_chars,
         temperature=DEFAULT_TEMPERATURE if temperature is None else temperature,
+        stream=DEFAULT_STREAM if stream is None else stream,
         system_prompt=system_prompt,
     )
 
@@ -222,44 +187,32 @@ def _is_cert_file(path: Path) -> bool:
     return path.suffix.lower() in CERT_SUFFIXES
 
 
-def _parse_env_value(raw_value: str) -> str:
-    if not raw_value:
-        return ''
-
-    if raw_value[0] in {'"', "'"}:
-        if raw_value[-1] != raw_value[0]:
-            raise ConfigError
-        try:
-            parsed_value = ast.literal_eval(raw_value)
-        except (SyntaxError, ValueError) as error:
-            raise ConfigError from error
-        if not isinstance(parsed_value, str):
-            raise ConfigError
-        return parsed_value
-
-    return raw_value
-
-
-def _required(
-    raw_config: dict[str, object],
-    key: str,
-    parser: Callable[[object], object],
-) -> object:
-    value = _optional(raw_config, key, parser)
+def _required_non_empty_str(raw_config: dict[str, object], key: str) -> str:
+    value = _optional_non_empty_str(raw_config, key)
     if value is None:
         raise ConfigError
     return value
 
 
-def _optional(
-    raw_config: dict[str, object],
-    key: str,
-    parser: Callable[[object], object],
-) -> object | None:
+def _optional_non_empty_str(raw_config: dict[str, object], key: str) -> str | None:
     value = raw_config.get(key)
     if value is None:
         return None
-    return parser(value)
+    return _parse_non_empty_str(value)
+
+
+def _optional_positive_int(raw_config: dict[str, object], key: str) -> int | None:
+    value = raw_config.get(key)
+    if value is None:
+        return None
+    return _parse_positive_int(value)
+
+
+def _optional_temperature(raw_config: dict[str, object], key: str) -> float | None:
+    value = raw_config.get(key)
+    if value is None:
+        return None
+    return _parse_temperature(value)
 
 
 def _parse_non_empty_str(value: object) -> str:

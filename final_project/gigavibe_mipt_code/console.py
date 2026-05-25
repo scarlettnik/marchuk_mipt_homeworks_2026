@@ -12,6 +12,9 @@ class Terminal:
     def write(self, text: str = '') -> None:
         print(text)
 
+    def write_fragment(self, text: str) -> None:
+        print(text, end='', flush=True)
+
     def clear(self) -> None:
         command = 'cls' if os.name == 'nt' else 'clear'
         os.system(command)

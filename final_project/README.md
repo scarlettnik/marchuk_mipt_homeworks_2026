@@ -2,7 +2,20 @@
 
 Консольный чат-бот для GigaChat OpenAI-compatible API.
 
-Поддерживает историю диалога, лимиты контекста, вставку файлов через `@::path::`, chunk mode, `/reset` и `\q`.
+Поддерживает streaming-ответы, историю диалога, лимиты контекста, вставку файлов через `@::path::`, chunk mode, `/reset` и `\q`.
+
+## Сетап
+
+```bash
+cd final_project
+uv sync
+```
+
+Запуск
+
+```bash
+uv run main.py
+```
 
 ## Конфигурация
 
@@ -15,6 +28,7 @@ model: GigaChat
 limit_message: 20
 limit_chars: 4000
 temperature: 0.3
+stream: true
 system_prompt: |-
   You are an assistant for Python backend development tasks.
   Answer concisely and keep code changes focused.
@@ -43,7 +57,8 @@ TLS-сертификаты обязательны. Клиент всегда п�
 ## Проверки
 
 ```bash
-python -m pytest final_project/tests
-python -m mypy final_project
-ruff check final_project --config final_project/ruff.toml
+uv sync --group test --group lint
+uv run pytest tests
+uv run mypy .
+uv run ruff check . --config ruff.toml
 ```

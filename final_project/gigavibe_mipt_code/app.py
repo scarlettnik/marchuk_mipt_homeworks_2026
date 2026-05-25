@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from pathlib import Path
 
 from .commands import (
@@ -86,7 +87,7 @@ class ConsoleAssistant:
 
     def _handle_chat_message(self, user_input: str) -> None:
         try:
-            assistant_reply = self._service.chat(user_input)
+            self._write_streamed_reply(self._service.chat(user_input))
         except FileError as error:
             self._console.write(str(error))
             return
@@ -96,8 +97,6 @@ class ConsoleAssistant:
         except RequestInterrupted:
             self._console.write('\nПрервано.')
             return
-
-        self._console.write(assistant_reply)
 
     def _run_file_chunk_mode(self, command: FileChunkCommand) -> None:
         file_path = self._read_mode_value('Путь: ')
@@ -135,7 +134,7 @@ class ConsoleAssistant:
 
     def _process_chunk(self, chunk_prompt: str, chunk: str) -> bool:
         try:
-            chunk_response = self._service.chunk_reply(chunk_prompt, chunk)
+            self._write_streamed_reply(self._service.chunk_reply(chunk_prompt, chunk))
         except LLMClientError as error:
             self._console.write(str(error))
             return False
@@ -143,8 +142,19 @@ class ConsoleAssistant:
             self._console.write('\nПрервано.')
             return False
 
-        self._console.write(chunk_response)
         return True
+
+    def _write_streamed_reply(self, chunks: Iterable[str]) -> None:
+        completed = False
+        wrote = False
+        try:
+            for chunk in chunks:
+                self._console.write_fragment(chunk)
+                wrote = True
+            completed = True
+        finally:
+            if wrote or completed:
+                self._console.write()
 
     def _wait_for_next_chunk(self) -> bool:
         while True:

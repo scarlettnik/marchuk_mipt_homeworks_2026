@@ -4,4 +4,5 @@ model: GigaChat
 limit_message: 20
 limit_chars: 4000
 temperature: 0.3
+stream: true
 system_prompt: You are an assistant for Python backend development tasks.

@@ -28,6 +28,7 @@ def test_load_config_from_yaml_and_dotenv(tmp_path: Path, monkeypatch: pytest.Mo
                 'api_host: https://gigachat.devices.sberbank.ru/api/v1',
                 'limit_message: 10',
                 'limit_chars: 2000',
+                'stream: false',
                 'temperature: 0.2',
                 'system_prompt: Test prompt',
             ),
@@ -44,6 +45,7 @@ def test_load_config_from_yaml_and_dotenv(tmp_path: Path, monkeypatch: pytest.Mo
     assert config.token_url == 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth'
     assert config.limit_message == 10
     assert config.limit_chars == 2000
+    assert config.stream is False
     assert config.temperature == 0.2
     assert config.system_prompt == 'Test prompt'
 

@@ -26,14 +26,17 @@ class GigaChatClient:
     _expires_at: int = field(default=0, init=False)
     _ssl_context_cache: ssl.SSLContext | None = field(default=None, init=False)
 
-    def generate(self, messages: list[Message]) -> str:
+    def generate(self, messages: list[Message]) -> Iterator[str]:
         try:
             with urlopen(
-                self._build_request(messages),
+                self._build_request(messages, stream=self.config.stream),
                 timeout=self.timeout_seconds,
                 context=self._ssl_context(),
             ) as response:
-                return ''.join(_read_stream_response(response))
+                if self.config.stream:
+                    yield from _read_stream_response(response)
+                else:
+                    yield _read_completion_response(response.read())
         except (URLError, OSError) as error:
             raise LLMClientError(error) from error
         except (
@@ -45,10 +48,10 @@ class GigaChatClient:
         ) as error:
             raise LLMClientError from error
 
-    def _build_request(self, messages: list[Message]) -> Request:
+    def _build_request(self, messages: list[Message], *, stream: bool) -> Request:
         return Request(
             url=f'{self.config.api_host}/chat/completions',
-            data=_build_payload(self.config, messages),
+            data=_build_payload(self.config, messages, stream=stream),
             headers={
                 'Authorization': f'Bearer {self._get_access_token()}',
                 'Content-Type': 'application/json',
@@ -98,11 +101,11 @@ def _load_verify_cert(context: ssl.SSLContext, cert_data: bytes, cert_path: str)
     context.load_verify_locations(cadata=cert_data)
 
 
-def _build_payload(config: AppConfig, messages: list[Message]) -> bytes:
+def _build_payload(config: AppConfig, messages: list[Message], *, stream: bool) -> bytes:
     payload = {
         'model': config.model,
         'messages': [message.as_payload() for message in messages],
-        'stream': True,
+        'stream': stream,
         'temperature': config.temperature,
     }
     return json.dumps(payload, ensure_ascii=False).encode('utf-8')
@@ -124,6 +127,11 @@ def _read_stream_response(lines: Iterable[bytes]) -> Iterator[str]:
         content = payload['choices'][0].get('delta', {}).get('content')
         if content is not None:
             yield str(content)
+
+
+def _read_completion_response(raw_response: bytes) -> str:
+    payload = json.loads(raw_response)
+    return str(payload['choices'][0]['message']['content'])
 
 
 def _authorization_header(api_key: str) -> str:
