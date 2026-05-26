@@ -1,0 +1,47 @@
+[project]
+name = "gigavibe-mipt-code"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.3",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D", "ANN", "INP", "COM812", "ISC001"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["S101", "PT022", "DTZ007", "S311"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+exclude = [".*\\.ipynb"]
+
+[tool.ty.src]
+include = ["**/*.py"]
+
+[tool.pyrefly]
+project-includes = ["**/*.py"]
+project-excludes = ["**/*.ipynb*"]
+
+[dependency-groups]
+lint = [
+    "mypy>=1.19.1",
+    "ruff>=0.14.13",
+    "types-pyyaml>=6.0.12.20260518",
+    "wemake-python-styleguide>=1.5.0",
+]
+test = [
+    "pytest>=9.0.2",
+]
